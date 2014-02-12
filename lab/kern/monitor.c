@@ -24,6 +24,7 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{ "backtrace", "Display the backtrace information", mon_backtrace }
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
@@ -58,10 +59,28 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
-	// Your code here.
-	return 0;
-}
 
+struct Eipdebuginfo debug_info;
+uint32_t* ebp = (uint32_t*)read_ebp();
+uint32_t* eip = (uint32_t*)get_eip();
+
+cprintf("Stack backtrace:\n");
+while (ebp) {
+        
+	cprintf(" ebp %08x eip %08x args %08x %08x %08x %08x %08x\n",
+	ebp, ebp[1], ebp[2], ebp[3], ebp[4], ebp[5], ebp[6]);
+
+	if (debuginfo_eip((int)eip, &debug_info) == 0)
+	cprintf(" %s:%d: %.*s+%d\n", debug_info.eip_file, debug_info.eip_line,
+		debug_info.eip_fn_namelen, debug_info.eip_fn_name, (uint32_t)eip - debug_info.eip_fn_addr);
+          
+        eip = (uint32_t*)ebp[1];
+	ebp = (uint32_t*)ebp[0];
+       
+        }
+
+return 0;
+}
 
 
 /***** Kernel monitor command interpreter *****/
@@ -123,4 +142,13 @@ monitor(struct Trapframe *tf)
 			if (runcmd(buf, tf) < 0)
 				break;
 	}
+}
+
+
+uint32_t get_eip(void){
+
+uint32_t callerpc;
+__asm __volatile("movl 4(%%ebp), %0" : "=r" (callerpc));
+return callerpc;
+ 
 }
