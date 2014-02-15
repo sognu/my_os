@@ -1,0 +1,40 @@
+Questions:
+
+
+1. 'x' should be of type uintptr_t.  The reason is that it's dereferenced.
+   By the paragraph above, "the kernel can't sensibly dereference a
+   physical address".
+
+
+2.
+
+Entry	Base Virtual Address	Points to (logically):
+1023	0xffc0000		Page table for last 4MB of physical memory
+1022	0xff80000		Page table for second to last 4MB of physical memory
+.
+.
+.
+2	0x00800000
+1	0x00400000
+0	0x00000000		No mapping
+
+
+3.  Memory regions are protected by permission bits.  For example, 'PTE_U | PTE_W' indicates a page what is writable by someone at user level.  Specifically, the CPL (current priviledge level) equals zero indicated privileged, and three indicates user.  They are contained in the low two bits of the %cs register. 
+   There are three main regions that differ by privilege.  The first region [0, UTOP] is user level.  The second (UTOP, ULIM) is readable by both user and Kernel.  Finally, the third (UTOP, 4GB) is Kernel only.
+
+
+4.  The maximum amount is 256MB (indicated in pmap.h).  It has 256MB of space in the region [KBASE, 4GB] and maps all linear addressing to physical addresses.  The key is that it is useful to be able to go from a physical to a virtual address.
+
+
+
+5. 
+    Over 4MB.  Since each page is 1k entries * 1page/entry * 4k/page + 1/page_dir is a little over 4MB.
+
+
+6.
+
+Design Excersize:
+
+  There are two ways a kernel transitions from user to kernel mode.  The first are hardware interrupts.  The second are system calls.  Since the cpu uses linear addressing for the IDT and GDT than they would need to be part of the processes virtual address space.  Address caching may suffer since the whole table will be flushed.
+  Physical virtual addresses may be the same.  I/O devices may be accessed normally in supervisor mode.  The Kernel could access a user's virtual address space by using their page directory.
+  In summary, a Kernel that allowed users "unrestricted use of the full 4GB virtual and linear address space" has several drawbacks; including, poor performance and possibly more complex code.  However, since physical and virtual addresses are the same, it does allow a nice translation-free alternative to paging.
